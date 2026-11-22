@@ -8,12 +8,59 @@ interface AuthState {
   loading: boolean
 }
 
+interface Profile {
+  id: string
+  user_id: string
+  email: string
+  full_name: string | null
+  has_connected_bank: boolean
+  created_at: string
+  updated_at: string
+}
+
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     session: null,
     loading: true
   })
+  
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  // Fetch profile from database when user changes
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!authState.user?.id) {
+        setProfile(null)
+        return
+      }
+
+      setProfileLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', authState.user.id)
+          .single()
+
+        if (error) {
+          console.error('Error fetching profile:', error)
+          setProfile(null)
+        } else {
+          console.log('Profile fetched successfully:', data)
+          setProfile(data)
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        setProfile(null)
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [authState.user?.id])
 
   useEffect(() => {
     // Get initial session
@@ -87,12 +134,38 @@ export function useAuth() {
     return { data, error }
   }
 
+  const refreshProfile = async () => {
+    if (!authState.user?.id) return null
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', authState.user.id)
+        .single()
+
+      if (error) {
+        console.error('Error refreshing profile:', error)
+        return null
+      } else {
+        console.log('Profile refreshed successfully:', data)
+        setProfile(data)
+        return data
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error)
+      return null
+    }
+  }
+
   return {
     ...authState,
     signIn,
     signUp,
     signOut,
     signInWithOAuth,
-    profile: authState.user?.user_metadata
+    profile,
+    profileLoading,
+    refreshProfile
   }
 }

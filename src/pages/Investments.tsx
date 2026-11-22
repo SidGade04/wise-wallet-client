@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,20 +12,17 @@ import {
 import { ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { useInvestmentsStore } from "@/store/useInvestmentsStore";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { useBankAccounts } from "@/hooks/usePlaid";
-import { AlertCircle, TrendingUp, Info, Construction } from "lucide-react";
+import { TrendingUp, Info } from "lucide-react";
 import { mockHoldings, mockInvestmentTransactions } from "@/data/mockData";
 import { COLORS } from "@/constants/Colors";
 
 export default function Investments() {
-  const { holdings, transactions, totalValue, fetchHoldings, fetchTransactions, isLoading, error } = useInvestmentsStore();
+  const { holdings, transactions, totalValue, fetchHoldings, fetchTransactions, isLoading } = useInvestmentsStore();
   const { getToken } = useAuthToken();
   const { data: bankAccounts } = useBankAccounts();
-  const [showMockData, setShowMockData] = useState(false);
-
   useEffect(() => {
     const loadInvestmentData = async () => {
       // First try to get item ID from bank accounts
@@ -56,10 +53,10 @@ export default function Investments() {
     loadInvestmentData();
   }, [bankAccounts, fetchHoldings, fetchTransactions, getToken]);
 
-  // Determine what data to display
-  const displayHoldings = showMockData ? mockHoldings : holdings;
-  const displayTransactions = showMockData ? mockInvestmentTransactions : transactions;
-  const displayTotalValue = showMockData ? mockHoldings.reduce((sum, h) => sum + h.value, 0) : totalValue;
+  const usingSample = holdings.length === 0;
+  const displayHoldings = usingSample ? mockHoldings : holdings;
+  const displayTransactions = usingSample ? mockInvestmentTransactions : transactions;
+  const displayTotalValue = usingSample ? mockHoldings.reduce((sum, h) => sum + h.value, 0) : totalValue;
 
   const allocationData = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -90,71 +87,14 @@ export default function Investments() {
     );
   }
 
-  // Show API unavailable message with option to view mock data
-  const isApiUnavailable = error && (
-    error.includes('not implemented') || 
-    error.includes('Server error') || 
-    error.includes('500')
-  );
-
-  if (isApiUnavailable && !showMockData) {
-    return (
-      <div className="space-y-8 p-4">
-        <section>
-          <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
-            <TrendingUp className="h-6 w-6" />
-            Portfolio Overview
-          </h1>
-          
-          <Alert className="border-blue-200 bg-blue-50">
-            <Construction className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <div className="space-y-3">
-                <p className="font-medium">Investment Features Coming Soon!</p>
-                <p>The investment tracking API is currently under development. This feature will allow you to:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>View your investment portfolio holdings</li>
-                  <li>Track investment transactions</li>
-                  <li>Analyze portfolio performance</li>
-                  <li>See asset allocation breakdowns</li>
-                </ul>
-                <div className="pt-2">
-                  <Button 
-                    onClick={() => setShowMockData(true)}
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                  >
-                    <Info className="w-4 h-4 mr-2" />
-                    Preview with Sample Data
-                  </Button>
-                </div>
-              </div>
-            </AlertDescription>
-          </Alert>
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8 p-4">
       {/* Show mock data banner */}
-      {showMockData && (
+      {usingSample && (
         <Alert className="border-yellow-200 bg-yellow-50">
           <Info className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-800">
-            <div className="flex items-center justify-between">
-              <span>Viewing sample investment data for demonstration purposes.</span>
-              <Button 
-                onClick={() => setShowMockData(false)}
-                variant="outline"
-                size="sm"
-                className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-              >
-                Hide Sample Data
-              </Button>
-            </div>
+            <span>Sample portfolio shown. Link an investment account to replace it with live holdings.</span>
           </AlertDescription>
         </Alert>
       )}
@@ -163,7 +103,7 @@ export default function Investments() {
         <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="h-6 w-6" />
           Portfolio Overview
-          {showMockData && <span className="text-sm font-normal text-muted-foreground">(Sample Data)</span>}
+          {usingSample && <span className="text-sm font-normal text-muted-foreground">(Sample Data)</span>}
         </h1>
         <Card>
           <CardHeader>

@@ -27,7 +27,7 @@ const authenticatedFetch = async (url: string, options: RequestInit = {}, getTok
 
 // Plaid Link Token Hook
 export const usePlaidLinkToken = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading } = useAuth();
   const { getToken } = useAuthToken();
 
   return useQuery({
@@ -39,7 +39,7 @@ export const usePlaidLinkToken = () => {
         client_name: 'Wise Wallet'
       })
     }, getToken),
-    enabled: !!user?.id && !loading,
+    enabled: !!user?.id && !loading && !profileLoading,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount, error) => {
       // Don't retry auth errors
@@ -77,7 +77,7 @@ export const usePlaidExchange = () => {
 
 // Get Bank Accounts Hook
 export const useBankAccounts = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading } = useAuth();
   const { getToken } = useAuthToken();
 
   return useQuery({
@@ -88,7 +88,7 @@ export const useBankAccounts = () => {
       }
       return authenticatedFetch(`/plaid/accounts/user/${user.id}`, {}, getToken);
     },
-    enabled: !!user?.id && !loading,
+    enabled: !!user?.id && !loading && !profileLoading,
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: (failureCount, error) => {
       if (error.message.includes('Authentication') || error.message.includes('No valid')) {
@@ -101,7 +101,7 @@ export const useBankAccounts = () => {
 
 // Get User Transactions Hook
 export const useAllUserTransactions = (days: number = 90) => {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading } = useAuth();
   const { getToken } = useAuthToken();
 
   return useQuery({
@@ -112,7 +112,7 @@ export const useAllUserTransactions = (days: number = 90) => {
       }
       return authenticatedFetch(`/plaid/user_transactions/${user.id}?days=${days}`, {}, getToken);
     },
-    enabled: !!user?.id && !loading,
+    enabled: !!user?.id && !loading && !profileLoading,
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: (failureCount, error) => {
       if (error.message.includes('Authentication') || error.message.includes('No valid')) {
@@ -127,18 +127,30 @@ export const useAllUserTransactions = (days: number = 90) => {
 export const useTransformedTransactions = (days: number = 90) => {
   const { data, isLoading, error, refetch } = useAllUserTransactions(days)
 
-  const transformedTransactions = (data?.transactions || []).map((plaidTx: any) => ({
-    id: plaidTx.transaction_id,
-    merchant: plaidTx.merchant_name || plaidTx.name,
-    amount: -plaidTx.amount, // Plaid uses positive for spending, we use negative
-    date: new Date(plaidTx.date),
-    category: plaidTx.category?.[0] || 'Other',
-    description: plaidTx.name,
-    account_id: plaidTx.account_id,
-    payment_channel: plaidTx.payment_channel,
-    pending: plaidTx.pending,
-    isRecurring: false,
-  }))
+  const transformedTransactions = (data?.transactions || []).map((plaidTx: any, index: number) => {
+    const transformed = {
+      id: plaidTx.transaction_id,
+      merchant: plaidTx.merchant_name || plaidTx.name,
+      amount: -plaidTx.amount, // Plaid uses positive for spending, we use negative
+      date: new Date(plaidTx.date),
+      category: plaidTx.category?.[0] || 'Other',
+      description: plaidTx.name,
+      account_id: plaidTx.account_id,
+      payment_channel: plaidTx.payment_channel,
+      pending: plaidTx.pending,
+      isRecurring: false,
+    };
+    
+    // Debug logging for first few transactions
+    if (index < 3) {
+      console.log('Transaction Transformation Debug:', {
+        original: plaidTx,
+        transformed: transformed
+      });
+    }
+    
+    return transformed;
+  })
 
   return {
     transactions: transformedTransactions,

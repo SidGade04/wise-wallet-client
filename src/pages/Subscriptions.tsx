@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { PlaidLink } from "@/components/PlaidLink";
+import { useIsMobile } from "@/hooks/useMobile";
 
 interface DetectedSubscription {
   id: string;
@@ -62,7 +63,7 @@ const detectSubscriptions = (transactions: any[]): DetectedSubscription[] => {
   const merchantGroups: Record<string, MerchantGroup> = transactions
     .filter(t => t.amount < 0)
     .reduce<Record<string, MerchantGroup>>((acc, transaction) => {
-      const normalizedName = transaction.merchant
+      const normalizedName = (transaction.merchant || "unknown")
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '')
         .trim();
@@ -181,6 +182,7 @@ const detectSubscriptions = (transactions: any[]): DetectedSubscription[] => {
 
 export default function Subscriptions() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [confidenceFilter, setConfidenceFilter] = useState<string>("all");
@@ -293,7 +295,7 @@ export default function Subscriptions() {
           <Skeleton className="h-4 w-96" />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-4'}`}>
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="shadow-card">
               <CardHeader className="pb-2">
@@ -340,11 +342,11 @@ export default function Subscriptions() {
   }
 
   // No bank accounts connected
-  if (!bankAccounts || bankAccounts.length === 0) {
+  if (!bankAccounts?.accounts?.length) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Subscriptions</h1>
+          <h1 className={`font-bold ${isMobile ? 'text-2xl' : 'text-3xl'}`}>Subscriptions</h1>
           <p className="text-muted-foreground">
             Manage your recurring subscriptions and track spending
           </p>
@@ -360,7 +362,7 @@ export default function Subscriptions() {
               Connect your bank account to automatically detect recurring subscriptions.
             </p>
             <PlaidLink>
-              <Button variant="financial">
+              <Button variant="financial" className={isMobile ? 'w-full' : ''}>
                 <Building2 className="w-4 h-4 mr-2" />
                 Connect Bank Account
               </Button>
@@ -374,9 +376,9 @@ export default function Subscriptions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${isMobile ? 'flex-col items-start space-y-4' : ''}`}>
         <div>
-          <h1 className="text-3xl font-bold">Subscriptions</h1>
+          <h1 className={`font-bold ${isMobile ? 'text-2xl' : 'text-3xl'}`}>Subscriptions</h1>
           <p className="text-muted-foreground">
             Automatically detected recurring subscriptions and payments
           </p>
@@ -386,7 +388,7 @@ export default function Subscriptions() {
             </p>
           )}
         </div>
-        <Button onClick={() => refetch()} variant="outline" size="sm">
+        <Button onClick={() => refetch()} variant="outline" size="sm" className={isMobile ? 'w-full' : ''}>
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh Analysis
         </Button>
@@ -409,7 +411,7 @@ export default function Subscriptions() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-4'}`}>
         <Card className="shadow-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Detected Subscriptions</CardTitle>
@@ -504,8 +506,8 @@ export default function Subscriptions() {
         <CardHeader>
           <CardTitle>Filter Subscriptions</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+                 <CardContent>
+           <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'md:grid-cols-4'}`}>
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>

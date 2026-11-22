@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Receipt,
+  Building2,
   CreditCard,
   Settings,
   LogOut,
@@ -30,6 +31,7 @@ import { usePrefs } from "@/store/usePrefs";
 const navigationItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Transactions", url: "/transactions", icon: Receipt },
+  { title: "Banks", url: "/banks", icon: Building2 },
   { title: "Subscriptions", url: "/subscriptions", icon: CreditCard },
   { title: "Investments", url: "/investments", icon: LineChart },
   { title: "AI Assistant", url: "/assistant", icon: Bot },
@@ -44,7 +46,9 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-primary font-medium" : "hover:bg-accent/50";
+    isActive
+      ? "!bg-primary !text-primary-foreground hover:!bg-primary hover:!text-primary-foreground font-medium"
+      : "!text-sidebar-foreground hover:!bg-sidebar-accent hover:!text-sidebar-foreground";
 
   return (
     <Sidebar collapsible="icon">
@@ -57,7 +61,7 @@ export function AppSidebar() {
             </div>
             {open && (
               <div>
-                <h1 className="font-bold text-lg bg-gradient-financial bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-sidebar-foreground">
                   Wise Wallet
                 </h1>
               </div>
@@ -76,7 +80,7 @@ export function AppSidebar() {
               </Avatar>
               {open && (
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{profile.full_name || 'User'}</p>
+                  <p className="font-medium text-sm truncate text-sidebar-foreground">{profile.full_name || 'User'}</p>
                   <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
                 </div>
               )}
@@ -117,7 +121,7 @@ export function AppSidebar() {
               <SidebarMenuButton asChild>
                 <button 
                   onClick={signOut}
-                  className="w-full hover:bg-destructive/10 text-destructive"
+                  className="w-full !text-red-400 hover:!bg-red-500/10 hover:!text-red-300"
                 >
                   <LogOut className="w-4 h-4" />
                   {open && <span>Logout</span>}

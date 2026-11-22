@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,10 +12,9 @@ import { useAuth } from "@/store/useAuth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase } from "@/lib/supabase";
+import { useIsMobile } from "@/hooks/useMobile";
 
 import {
-  useProfile,
   useSubscriptionStatus,
   usePreferences,
   useNotifications,
@@ -33,8 +32,8 @@ type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function Settings() {
   const { profile: authProfile } = useAuth();
+  const isMobile = useIsMobile();
 
-  // Hooks for data fetching - remove profile fetching since we have it from auth
   const { data: subscription, isLoading: subscriptionLoading } = useSubscriptionStatus();
   const { data: preferences, save: savePrefs, isLoading: preferencesLoading, isSuccess } = usePreferences();
   const { data: notifications, save: saveNotifs, isLoading: notificationsLoading } = useNotifications();
@@ -42,10 +41,8 @@ export default function Settings() {
   const { exportZip } = useDataExport();
   const { del: deleteAccount } = useDeleteAccount();
 
-  // UI store for instant feedback (sync with fetched data)
   const { theme, currency, timezone, setTheme, setCurrency, setTimezone, loadFromBackend } = usePrefs();
 
-  // Profile form - use authProfile data
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -54,7 +51,7 @@ export default function Settings() {
     },
   });
 
-  // Update form when auth profile changes
+  // Keep the form in sync with the authenticated profile
   useEffect(() => {
     if (authProfile) {
       form.reset({
@@ -64,27 +61,29 @@ export default function Settings() {
     }
   }, [authProfile, form]);
 
-  // Sync preferences store with fetched data
-  useEffect(() => {
-    if (preferences) {
-      console.log("🔄 Loading preferences from backend:", preferences);
-      console.log("🎯 Current theme in store:", theme);
-      
-      // Load preferences from backend and apply them
-      if (isSuccess && preferences) {
-        loadFromBackend(preferences);
-      }
-      
-      console.log("✅ Applied preferences, new theme should be:", preferences.theme);
-    }
-  }, [preferences, loadFromBackend]);
+  /**
+   * Sync preferences from backend -> UI store exactly once per payload.
+   * Without the guard, React Query re-renders (or route hops) can
+   * re-apply and cause flicker / loops.
+   */
+  const lastAppliedPrefs = useRef<string | null>(null);
+  const prefsKey = useMemo(
+    () => (preferences ? JSON.stringify(preferences) : null),
+    [preferences]
+  );
 
-  // Show loading if auth profile is not available
+  useEffect(() => {
+    if (isSuccess && preferences && prefsKey && lastAppliedPrefs.current !== prefsKey) {
+      loadFromBackend(preferences);
+      lastAppliedPrefs.current = prefsKey;
+    }
+  }, [isSuccess, preferences, prefsKey, loadFromBackend]);
+
   if (!authProfile) {
     return (
-      <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+      <div className={`mx-auto space-y-6 ${isMobile ? "p-4" : "max-w-5xl p-4 md:p-8"}`}>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+          <h1 className={`font-semibold tracking-tight ${isMobile ? "text-xl" : "text-2xl"}`}>Settings</h1>
           <p className="text-sm text-muted-foreground">Loading your settings...</p>
         </div>
         <Skeleton className="w-full h-96" />
@@ -93,31 +92,40 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+    <div className={`mx-auto space-y-6 ${isMobile ? "p-4" : "max-w-5xl p-4 md:p-8"}`}>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+          <h1 className={`font-semibold tracking-tight ${isMobile ? "text-xl" : "text-2xl"}`}>Settings</h1>
           <p className="text-sm text-muted-foreground">Manage your account, billing, preferences, and privacy.</p>
         </div>
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-6 w-full">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="privacy">Data & Privacy</TabsTrigger>
-        </TabsList>
+        {isMobile ? (
+          <TabsList className="grid grid-cols-3 gap-1 w-full mb-6">
+            <TabsTrigger value="profile" className="text-xs px-2 py-2">Profile</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs px-2 py-2">Security</TabsTrigger>
+            <TabsTrigger value="subscription" className="text-xs px-2 py-2">Subscription</TabsTrigger>
+            <TabsTrigger value="preferences" className="text-xs px-2 py-2">Preferences</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs px-2 py-2">Notifications</TabsTrigger>
+            <TabsTrigger value="privacy" className="text-xs px-2 py-2">Privacy</TabsTrigger>
+          </TabsList>
+        ) : (
+          <TabsList className="grid grid-cols-2 md:grid-cols-6 w-full">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="preferences">Preferences</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="privacy">Data &amp; Privacy</TabsTrigger>
+          </TabsList>
+        )}
 
         {/* Profile */}
-        <TabsContent value="profile" className="space-y-6">
+        <TabsContent value="profile" className="space-y-6 mt-6">
           <ProfileSection
             form={form}
             onSave={(values) => {
-              // For now, just show a toast since profile updates aren't working
-              // You can implement this later when the database issue is fixed
               console.log("Profile update attempted:", values);
               toast.success("Profile updated (simulated)");
             }}
@@ -126,15 +134,15 @@ export default function Settings() {
         </TabsContent>
 
         {/* Security */}
-        <TabsContent value="security" className="space-y-6">
+        <TabsContent value="security" className="space-y-6 mt-6">
           <SecuritySection
             onToggle2FA={(v) => toast.info(v ? "2FA enabled (mock)" : "2FA disabled (mock)")}
             onChangePassword={() => toast.success("Password updated (mock)")}
           />
         </TabsContent>
 
-        {/* Subscription - Now properly connected to backend */}
-        <TabsContent value="subscription" className="space-y-6">
+        {/* Subscription */}
+        <TabsContent value="subscription" className="space-y-6 mt-6">
           {subscriptionLoading ? (
             <Skeleton className="w-full h-48" />
           ) : (
@@ -155,8 +163,8 @@ export default function Settings() {
           )}
         </TabsContent>
 
-        {/* Preferences - Connected to fetched data */}
-        <TabsContent value="preferences" className="space-y-6">
+        {/* Preferences */}
+        <TabsContent value="preferences" className="space-y-6 mt-6">
           {preferencesLoading ? (
             <Skeleton className="w-full h-48" />
           ) : (
@@ -166,31 +174,40 @@ export default function Settings() {
               timezone={timezone}
               onTheme={(v) => {
                 setTheme(v as any);
-                savePrefs.mutate({ theme: v, currency, timezone }, { 
-                  onSuccess: () => toast.success(`Theme updated to ${v}`),
-                  onError: (e: any) => toast.error(e?.message ?? "Failed to save theme preference"),
-                });
+                savePrefs.mutate(
+                  { theme: v, currency, timezone },
+                  {
+                    onSuccess: () => toast.success(`Theme updated to ${v}`),
+                    onError: (e: any) => toast.error(e?.message ?? "Failed to save theme preference"),
+                  }
+                );
               }}
               onCurrency={(v) => {
                 setCurrency(v);
-                savePrefs.mutate({ theme, currency: v, timezone }, { 
-                  onSuccess: () => toast.success(`Currency updated to ${v}`),
-                  onError: (e: any) => toast.error(e?.message ?? "Failed to save currency preference"),
-                });
+                savePrefs.mutate(
+                  { theme, currency: v, timezone },
+                  {
+                    onSuccess: () => toast.success(`Currency updated to ${v}`),
+                    onError: (e: any) => toast.error(e?.message ?? "Failed to save currency preference"),
+                  }
+                );
               }}
               onTimezone={(v) => {
                 setTimezone(v);
-                savePrefs.mutate({ theme, currency, timezone: v }, { 
-                  onSuccess: () => toast.success(`Timezone updated to ${v}`),
-                  onError: (e: any) => toast.error(e?.message ?? "Failed to save timezone preference"),
-                });
+                savePrefs.mutate(
+                  { theme, currency, timezone: v },
+                  {
+                    onSuccess: () => toast.success(`Timezone updated to ${v}`),
+                    onError: (e: any) => toast.error(e?.message ?? "Failed to save timezone preference"),
+                  }
+                );
               }}
             />
           )}
         </TabsContent>
 
-        {/* Notifications - Connected to fetched data */}
-        <TabsContent value="notifications" className="space-y-6">
+        {/* Notifications */}
+        <TabsContent value="notifications" className="space-y-6 mt-6">
           {notificationsLoading ? (
             <Skeleton className="w-full h-48" />
           ) : (
@@ -198,7 +215,7 @@ export default function Settings() {
               emailWeekly={notifications?.emailWeekly ?? true}
               inAppAlerts={notifications?.inAppAlerts ?? true}
               onChange={(vals) => {
-                saveNotifs.mutate(vals, { 
+                saveNotifs.mutate(vals, {
                   onSuccess: () => toast.success("Notification preferences saved"),
                   onError: (e: any) => toast.error(e?.message ?? "Failed to save notification preferences"),
                 });
@@ -208,14 +225,16 @@ export default function Settings() {
         </TabsContent>
 
         {/* Data & Privacy */}
-        <TabsContent value="privacy" className="space-y-6">
+        <TabsContent value="privacy" className="space-y-6 mt-6">
           <PrivacySection
             exporting={exportZip.isPending}
             deleting={deleteAccount.isPending}
-            onExport={() => exportZip.mutate(undefined, { 
-              onSuccess: () => toast.success("Export ready"),
-              onError: (e: any) => toast.error(e?.message ?? "Export failed"),
-            })}
+            onExport={() =>
+              exportZip.mutate(undefined, {
+                onSuccess: () => toast.success("Export ready"),
+                onError: (e: any) => toast.error(e?.message ?? "Export failed"),
+              })
+            }
             onDelete={() => {
               if (confirm("This will permanently delete your account and data. Continue?")) {
                 deleteAccount.mutate(undefined, {

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">wise_wallet</string>
+    <string name="title_activity_main">wise_wallet</string>
+    <string name="package_name">com.wisewallet.app</string>
+    <string name="custom_url_scheme">com.wisewallet.app</string>
+</resources>

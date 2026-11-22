@@ -12,7 +12,7 @@ interface InvestmentsState {
 }
 
 // Use the same API base as your other Plaid endpoints
-const API_BASE_URL = import.meta.env.VITE_AI_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export const useInvestmentsStore = create<InvestmentsState>((set, get) => ({
   holdings: [],
@@ -27,7 +27,7 @@ export const useInvestmentsStore = create<InvestmentsState>((set, get) => ({
       const token = await getToken();
       
       // Updated API URL structure to match your backend
-      const res = await fetch(`${API_BASE_URL}/investments/holdings/${itemId}`, {
+      const res = await fetch(`${API_BASE_URL}/plaid/investments/${itemId}/holdings`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -67,7 +67,7 @@ export const useInvestmentsStore = create<InvestmentsState>((set, get) => ({
       const token = await getToken();
       
       // Updated API URL structure to match your backend
-      const res = await fetch(`${API_BASE_URL}/investments/transactions/${itemId}`, {
+      const res = await fetch(`${API_BASE_URL}/plaid/investments/${itemId}/transactions`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,

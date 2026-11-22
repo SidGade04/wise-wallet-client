@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlaidLink } from '@/components/PlaidLink';
+import { useBankAccounts } from '@/hooks/usePlaid';
 import { Loader2, CreditCard, Lock, Crown, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 // Keep the ORIGINAL subscription check that was working
 const useIsPro = () => {
@@ -68,7 +71,7 @@ const useIsPro = () => {
       
       console.log('Making subscription status request with token...');
       
-      const response = await fetch('/api/stripe/subscription/status', {
+      const response = await fetch(`${API_BASE_URL}/stripe/subscription/status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -111,12 +114,15 @@ export function ProtectedRoute({
   requiresBankConnection = false, 
   requiresSubscription = false 
 }: ProtectedRouteProps) {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, profileLoading, refreshProfile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   const { data: isPro, isLoading: subLoading, error: subError, refetch } = useIsPro();
+  const { data: bankData, isPending: banksPending } = useBankAccounts();
+  const [skipBank, setSkipBank] = useState(() => sessionStorage.getItem("ww-skip-bank") === "1");
+  const hasBank = profile?.has_connected_bank === true || (bankData?.accounts?.length ?? 0) > 0 || skipBank;
 
   // Debug logging - let's see what's happening
   console.log('ProtectedRoute State:', { 
@@ -129,11 +135,12 @@ export function ProtectedRoute({
     subError: subError?.message,
     requiresSubscription,
     requiresBankConnection,
-    authLoading
+    authLoading,
+    profileLoading
   });
 
-  // Show loading spinner while auth is loading
-  if (authLoading) {
+  // Show loading spinner while auth or profile is loading
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -216,7 +223,18 @@ export function ProtectedRoute({
 
   // IMPORTANT: Only check bank connection if we have a profile AND it explicitly says no bank connection
   // If profile doesn't exist or doesn't have the has_connected_bank property, assume it's connected
-  if (requiresBankConnection && profile && profile.has_connected_bank === false) {
+  if (requiresBankConnection && !hasBank && banksPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading accounts...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (requiresBankConnection && !hasBank) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -231,10 +249,33 @@ export function ProtectedRoute({
           </CardHeader>
           <CardContent className="space-y-4">
             <PlaidLink
-              onSuccess={() => {
+              onSuccess={async () => {
                 toast.success('Bank account connected successfully!');
-                // Force a page refresh to update the profile
-                window.location.reload();
+                
+                // Wait a moment for backend to process the profile update
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Refresh profile data to get updated bank connection status
+                await refreshProfile();
+                
+                // Invalidate relevant queries to refresh data
+                queryClient.invalidateQueries({ queryKey: ['plaid', 'accounts', user?.id] });
+                queryClient.invalidateQueries({ queryKey: ['plaid', 'user-transactions', user?.id] });
+                // Also invalidate the broader plaid queries to ensure all data refreshes
+                queryClient.invalidateQueries({ queryKey: ['plaid'] });
+                
+                // Force refetch all plaid data by removing from cache and refetching
+                queryClient.removeQueries({ queryKey: ['plaid', 'accounts', user?.id] });
+                queryClient.removeQueries({ queryKey: ['plaid', 'user-transactions', user?.id] });
+                queryClient.removeQueries({ queryKey: ['plaid'] });
+                
+                // Trigger a refetch of all plaid data
+                queryClient.refetchQueries({ queryKey: ['plaid'] });
+                
+                // Show success message and redirect
+                setTimeout(() => {
+                  navigate('/dashboard');
+                }, 1500);
               }}
             >
               <Button className="w-full" size="lg">
@@ -247,6 +288,8 @@ export function ProtectedRoute({
               <Button 
                 variant="ghost" 
                 onClick={() => {
+                  sessionStorage.setItem("ww-skip-bank", "1");
+                  setSkipBank(true);
                   toast.info('Demo mode enabled - skipping bank connection');
                   navigate('/dashboard');
                 }}
@@ -254,13 +297,6 @@ export function ProtectedRoute({
               >
                 Skip for now (Demo Mode)
               </Button>
-            </div>
-            
-            {/* Debug info to help troubleshoot */}
-            <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-              <div>Profile exists: {profile ? 'YES' : 'NO'}</div>
-              <div>has_connected_bank: {profile?.has_connected_bank?.toString() || 'undefined'}</div>
-              <div>requiresBankConnection: {requiresBankConnection.toString()}</div>
             </div>
           </CardContent>
         </Card>

@@ -96,32 +96,41 @@ All colors MUST be HSL for consistency and theming support.
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 70%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 215 20% 75%;
 
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+
+    --sidebar-background: 222.2 84% 4.9%;
+
+    --sidebar-foreground: 210 40% 96%;
+
+    --sidebar-primary: 217 91% 60%;
+
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --sidebar-accent: 217 33% 18%;
+
+    --sidebar-accent-foreground: 210 40% 96%;
+
+    --sidebar-border: 217.2 32.6% 17.5%;
+
+    --sidebar-ring: 212.7 26.8% 83.9%;
   }
 }
 
@@ -129,8 +138,91 @@ All colors MUST be HSL for consistency and theming support.
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .gradient-financial {
+    background: var(--gradient-financial);
+  }
+  
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-success {
+    background: var(--gradient-success);
+  }
+  
+  .gradient-subtle {
+    background: var(--gradient-subtle);
+  }
+  
+  .shadow-financial {
+    box-shadow: var(--shadow-financial);
+  }
+  
+  .shadow-success {
+    box-shadow: var(--shadow-success);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-bounce {
+    transition: var(--transition-bounce);
+  }
+}
+
+/* Mobile-specific styles */
+@layer utilities {
+  /* Safe area insets for mobile devices */
+  .h-safe-area-inset-bottom {
+    height: env(safe-area-inset-bottom, 0px);
+  }
+  
+  .pb-safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  /* Mobile touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile scrollbar hiding */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Mobile viewport height fix */
+  .h-screen-mobile {
+    height: 100vh;
+    height: 100dvh;
+  }
+  
+  /* Mobile bottom navigation spacing */
+  .pb-bottom-nav {
+    padding-bottom: 5rem;
+  }
+  
+  @media (max-width: 768px) {
+    .pb-bottom-nav {
+      padding-bottom: 6rem;
+    }
   }
 }
