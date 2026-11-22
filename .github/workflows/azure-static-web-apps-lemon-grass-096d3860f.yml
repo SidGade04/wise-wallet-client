@@ -19,12 +19,17 @@ jobs:
         with:
           submodules: true
           lfs: false
+
+      - name: Write Vite env
+        run: |
+          test -n "${{ secrets.VITE_SUPABASE_URL }}" || (echo "VITE_SUPABASE_URL secret is EMPTY" && exit 1)
+          test -n "${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" || (echo "VITE_SUPABASE_PUBLISHABLE_KEY secret is EMPTY" && exit 1)
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" > .env.production
+          echo "VITE_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}" >> .env.production
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_GRASS_096D3860F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
