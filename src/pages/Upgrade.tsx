@@ -9,106 +9,17 @@ import { CheckCircle, Crown, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreateCheckoutSession } from '@/hooks/useSubscription';
 
-// Declare Stripe type
-declare global {
-  interface Window {
-    Stripe: any;
-  }
-}
-
-// Stripe checkout function that works with your auth store
-const createCheckoutSession = async (plan: string, authSession: any) => {
-  let token = null;
-  
-  // Get token from your auth session
-  if (authSession?.access_token) {
-    token = authSession.access_token;
-  } else {
-    // Fallback to localStorage search
-    const supabaseKeys = Object.keys(localStorage).filter(key => 
-      key.includes('supabase') || key.includes('auth')
-    );
-    
-    for (const key of supabaseKeys) {
-      try {
-        const value = localStorage.getItem(key);
-        if (value) {
-          const parsed = JSON.parse(value);
-          if (parsed.access_token || parsed.session?.access_token) {
-            token = parsed.access_token || parsed.session.access_token;
-            break;
-          }
-        }
-      } catch (e) {
-        // Continue searching
-      }
-    }
-  }
-  
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-
-  const response = await fetch('/api/stripe/create-checkout-session', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ plan }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Checkout session error:', errorText);
-    throw new Error('Failed to create checkout session');
-  }
-
-  return response.json();
-};
-
 const UpgradePage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, session } = useAuth(); // Get both user and session
+  const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
-  const [stripeLoaded, setStripeLoaded] = useState(false);
   const createCheckoutSession = useCreateCheckoutSession();
 
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
-
-  // Load Stripe script
-  useEffect(() => {
-    const loadStripe = async () => {
-      // Check if Stripe is already loaded
-      if (window.Stripe) {
-        setStripeLoaded(true);
-        return;
-      }
-
-      // Create script element
-      const script = document.createElement('script');
-      script.src = 'https://js.stripe.com/v3/';
-      script.async = true;
-      
-      script.onload = () => {
-        console.log('✅ Stripe script loaded');
-        setStripeLoaded(true);
-      };
-      
-      script.onerror = () => {
-        console.error('❌ Failed to load Stripe script');
-        toast.error('Failed to load payment system');
-      };
-
-      document.head.appendChild(script);
-    };
-
-    loadStripe();
-  }, []);
 
   useEffect(() => {
     if (success === 'true' && sessionId && user) {
@@ -143,46 +54,16 @@ const UpgradePage = () => {
       return;
     }
 
-    if (!stripeLoaded) {
-      toast.error('Payment system is still loading, please try again');
-      return;
-    }
-
-    if (!window.Stripe) {
-      toast.error('Payment system not available');
-      return;
-    }
-
     try {
       setLoading(plan);
-      console.log('Creating checkout session for plan:', plan);
       const data = await createCheckoutSession.mutateAsync({ plan });
-      
-      // Get Stripe publishable key from environment
-      const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-      
-      if (!stripePublishableKey) {
-        throw new Error('Stripe publishable key not configured');
+      if (!data?.url) {
+        throw new Error('No checkout URL returned');
       }
-      
-      // Initialize Stripe
-      const stripe = window.Stripe(stripePublishableKey);
-      
-      if (!stripe) {
-        throw new Error('Failed to initialize Stripe');
-      }
-      
-      console.log('Redirecting to Stripe checkout...');
-      const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-      
-      if (error) {
-        console.error('Stripe redirect error:', error);
-        toast.error(`Payment error: ${error.message}`);
-      }
+      window.location.href = data.url;
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Failed to start checkout process');
-    } finally {
       setLoading(null);
     }
   };
@@ -302,16 +183,14 @@ const UpgradePage = () => {
                 className="w-full bg-blue-600 hover:bg-blue-700" 
                 size="lg"
                 onClick={() => handleUpgrade('pro_monthly')}
-                disabled={loading === 'pro_monthly' || !stripeLoaded}
+                disabled={loading === 'pro_monthly'}
               >
                 {loading === 'pro_monthly' ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : !stripeLoaded ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Crown className="w-4 h-4 mr-2" />
                 )}
-                {!stripeLoaded ? 'Loading...' : 'Choose Monthly'}
+                Choose Monthly
               </Button>
             </CardContent>
           </Card>
@@ -355,7 +234,7 @@ const UpgradePage = () => {
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700" 
                 size="lg"
                 onClick={() => handleUpgrade('pro_yearly')}
-                disabled={loading === 'pro_yearly' || !stripeLoaded}
+                disabled={loading === 'pro_yearly'}
               >
                 {loading === 'pro_yearly' ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
