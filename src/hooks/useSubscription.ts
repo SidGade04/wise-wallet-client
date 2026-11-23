@@ -70,6 +70,24 @@ export const useCreateCheckoutSession = () => {
   });
 };
 
+export const useConfirmCheckout = () => {
+  const { getToken } = useAuthToken();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: ({ sessionId }: { sessionId: string }) =>
+      authenticatedFetch('/stripe/confirm-checkout', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: sessionId })
+      }, getToken),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['subscription', user?.id], data);
+      queryClient.invalidateQueries({ queryKey: ['isPro', user?.id] });
+    },
+  });
+};
+
 // Refresh subscription status
 export const useRefreshSubscription = () => {
   const queryClient = useQueryClient();

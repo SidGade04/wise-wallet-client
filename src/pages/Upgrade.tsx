@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Crown, Loader2, Check, X, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCreateCheckoutSession } from '@/hooks/useSubscription';
+import { useConfirmCheckout, useCreateCheckoutSession } from '@/hooks/useSubscription';
 
 const UpgradePage = () => {
   const [searchParams] = useSearchParams();
@@ -16,6 +16,7 @@ const UpgradePage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const createCheckoutSession = useCreateCheckoutSession();
+  const confirmCheckout = useConfirmCheckout();
 
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
@@ -23,22 +24,24 @@ const UpgradePage = () => {
 
   useEffect(() => {
     if (success === 'true' && sessionId && user) {
-      // Payment was successful
-      console.log('🎉 Payment successful, invalidating cache...');
-      
-      // Invalidate and refetch subscription status
-      queryClient.invalidateQueries({ queryKey: ['isPro', user.id] });
-      
-      // Show success message
-      toast.success('🎉 Welcome to Pro!', {
-        description: 'Your payment was successful. You now have access to all premium features!',
-        duration: 6000,
-      });
-
-      // Redirect to AI Assistant after a short delay
-      setTimeout(() => {
-        navigate('/assistant', { replace: true });
-      }, 2000);
+      let cancelled = false;
+      (async () => {
+        try {
+          await confirmCheckout.mutateAsync({ sessionId });
+        } catch (e) {
+          console.error('Confirm checkout failed:', e);
+        }
+        if (cancelled) return;
+        queryClient.invalidateQueries({ queryKey: ['isPro', user.id] });
+        toast.success('🎉 Welcome to Pro!', {
+          description: 'Your payment was successful. You now have access to all premium features!',
+          duration: 6000,
+        });
+        setTimeout(() => {
+          if (!cancelled) navigate('/assistant', { replace: true });
+        }, 2000);
+      })();
+      return () => { cancelled = true; };
     }
 
     if (canceled === 'true') {

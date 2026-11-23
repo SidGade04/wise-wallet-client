@@ -38,18 +38,39 @@ export function useAuth() {
 
       setProfileLoading(true)
       try {
+        const userId = authState.user.id
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', authState.user.id)
-          .single()
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle()
 
         if (error) {
           console.error('Error fetching profile:', error)
           setProfile(null)
-        } else {
-          console.log('Profile fetched successfully:', data)
+        } else if (data) {
           setProfile(data)
+        } else {
+          const { data: created, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: userId,
+              email: authState.user.email,
+              full_name:
+                authState.user.user_metadata?.full_name ||
+                authState.user.user_metadata?.name ||
+                authState.user.email?.split('@')[0] ||
+                null,
+            })
+            .select('*')
+            .maybeSingle()
+          if (insertError) {
+            console.error('Error creating profile:', insertError)
+            setProfile(null)
+          } else {
+            setProfile(created)
+          }
         }
       } catch (error) {
         console.error('Error fetching profile:', error)
@@ -138,11 +159,12 @@ export function useAuth() {
     if (!authState.user?.id) return null
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', authState.user.id)
-        .single()
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', authState.user.id)
+          .limit(1)
+          .maybeSingle()
 
       if (error) {
         console.error('Error refreshing profile:', error)
