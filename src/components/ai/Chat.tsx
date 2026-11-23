@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bot, User, Send, Loader2, Trash2 } from "lucide-react";
 import { useAssistant } from "@/store/assistant";
-import { supabase } from "@/lib/supabase";
+import { useAuthToken } from "@/hooks/useAuthToken";
 import { Message } from "./Message";
 import { useToast } from "@/hooks/useToast";
 
@@ -20,11 +20,11 @@ export function Chat({ threadId, externalQuestion, onQuestionSubmitted }: ChatPr
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { getToken } = useAuthToken();
   
   const { 
     threads, 
     addMessage, 
-    updateMessage, 
     setThreadTitle,
     deleteThread
   } = useAssistant();
@@ -71,11 +71,9 @@ export function Chat({ threadId, externalQuestion, onQuestionSubmitted }: ChatPr
     }
 
     try {
-      // Call AI service
-      const aiServiceUrl = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8001";
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token || localStorage.getItem("auth_token") || "";
-      const response = await fetch(`${aiServiceUrl}/v1/assistant/rag`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+      const token = await getToken();
+      const response = await fetch(`${apiUrl}/assistant/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,7 +83,7 @@ export function Chat({ threadId, externalQuestion, onQuestionSubmitted }: ChatPr
           question: question,
           context: {
             thread_id: threadId,
-            previous_messages: messages.slice(-5) // Last 5 messages for context
+            previous_messages: messages.slice(-5).map(m => ({ role: m.role, content: m.content }))
           }
         })
       });

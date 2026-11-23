@@ -34,11 +34,10 @@ export interface ToolResult {
 }
 
 export interface AssistantQuery {
-  user_id: string;
   question: string;
   context?: {
     thread_id?: string;
-    previous_messages?: AssistantMessage[];
+    previous_messages?: Pick<AssistantMessage, "role" | "content">[];
     [key: string]: any;
   };
 }
@@ -49,8 +48,9 @@ export interface AssistantResponse {
   used_tools: ToolResult[];
   metadata: {
     user_id: string;
-    kb_chunks_retrieved: number;
-    tools_used: number;
+    transaction_count?: number;
+    account_count?: number;
+    source?: string;
     [key: string]: any;
   };
 }
